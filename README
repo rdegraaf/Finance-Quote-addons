@@ -14,6 +14,8 @@ Finance::Quote's install directory (likely something like
 /usr/local/share/perl5/Finance/Quote.pm) to add "Google" and "TDBank" to 
 "@modules".
 
+To run unit tests, first install then run test_google.pl and test_tdbank.pl.
+
 
 Licence
 -------

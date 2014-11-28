@@ -123,8 +123,6 @@ sub tdbank
     return wantarray() ? %info : \%info;
 }
 
-1;
-
 __END__
 
 =head1 NAME

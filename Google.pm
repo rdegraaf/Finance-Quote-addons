@@ -42,7 +42,7 @@ $VERSION = '1.20';
 $QUOTE_URI='https://www.google.com/finance/info?q=';
 
 sub methods { return (google => \&google); }
-sub labels { return (google => [qw/method exchange name nav date isodate price/]); } # TODO
+sub labels { return (google => [qw/exchange symbol last currency date time timezone/]); }
 
 sub get_currency_by_exchange
 {
@@ -92,69 +92,71 @@ sub google
         # Decode the JSON
         my @quotes;
         eval {@quotes = @{decode_json($json)}};
-        unless (!$@)
+        if (!$@)
+        {
+            # Convert the array of quotes to a map.
+            my %quote_map;
+            foreach (@quotes)
+            {
+                if ($_->{'t'})
+                {
+                    $quote_map{$_->{'t'}} = $_;
+                }
+            }
+            
+            foreach (@symbols)
+            {
+                # Make sure that we have a quote with the required fields
+                unless (defined $quote_map{$_})
+                {
+                    $info{$_, 'errormsg'} = 'No response received';
+                    $info{$_, 'success'} = 0;
+                    next;
+                }
+                my $quote = $quote_map{$_};
+                unless ($quote->{'l'} && '' ne $quote->{'l'} && $quote->{'lt_dts'} && $quote->{'e'})
+                {
+                    $info{$_, 'errormsg'} = 'Missing or invalid fields in response';
+                    $info{$_, 'success'} = 0;
+                    next;
+                }
+                
+                # Parse fields before we set anything in the response
+                # lt_dts is a timestamp of the form YYYY-mm-DDTHH:MM:SSZ
+                (my $date, my $time) = ($quote->{'lt_dts'} =~ /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}):\d{2}Z$/);
+                # l_cur may contain a currency symbol, but it's ambiguous.
+                # So we guess the currency based on the exchange.
+                my $currency = get_currency_by_exchange($quote->{'e'});
+                unless ($date && $time && $currency)
+                {
+                    $info{$_, 'errormsg'} = 'Missing or invalid fields in response';
+                    $info{$_, 'success'} = 0;
+                    next;
+                }
+
+                $info{$_, 'last'} = $quote->{'l'};
+                $quoter->store_date(\%info, $_, {isodate => $date});
+                $info{$_, 'time'} = $time;
+                if ($quote->{'ltt'})
+                {
+                    # ltt is a timestamp of the form H:MMPP ZZ
+                    ($info{$_, 'timezone'}) = ($quote->{'ltt'} =~ /^\d{1,2}:\d{2}[AP]M ([A-Z]+)$/);
+                }
+                $info{$_, 'currency'} = $currency;
+                $info{$_, 'symbol'} = $_;
+                $info{$_, 'exchange'} = $quote->{'e'};
+                $info{$_, 'method'} = 'Google';
+                $info{$_, 'source'} = 'Finance::Quote::Google';
+                $info{$_, 'success'} = 1;
+            }
+        }
+        else
         {
             foreach (@symbols)
             {
                 $info{$_, 'errormsg'} = 'Error parsing response';
                 $info{$_, 'success'} = 0;
             }
-        }
-
-        # Convert the array of quotes to a map.
-        my %quote_map;
-        foreach (@quotes)
-        {
-            if ($_->{'t'})
-            {
-                $quote_map{$_->{'t'}} = $_;
-            }
-        }
-        
-        foreach (@symbols)
-        {
-            # Make sure that we have a quote with the required fields
-            unless (defined $quote_map{$_})
-            {
-                $info{$_, 'errormsg'} = 'No response received';
-                $info{$_, 'success'} = 0;
-                next;
-            }
-            my $quote = $quote_map{$_};
-            unless ($quote->{'l'} && '' ne $quote->{'l'} && $quote->{'lt_dts'} && $quote->{'e'})
-            {
-                $info{$_, 'errormsg'} = 'Missing or invalid fields in response';
-                $info{$_, 'success'} = 0;
-                next;
-            }
-            
-            # Parse fields before we set anything in the response
-            # lt_dts is a timestamp of the form YYYY-mm-DDTHH:MM:SSZ
-            (my $date, my $time) = ($quote->{'lt_dts'} =~ /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}):\d{2}Z$/);
-            # l_cur may contain a currency symbol, but it's ambiguous.
-            # So we guess the currency based on the exchange.
-            my $currency = get_currency_by_exchange($quote->{'e'});
-            unless ($date && $time && $currency)
-            {
-                $info{$_, 'errormsg'} = 'Missing or invalid fields in response';
-                $info{$_, 'success'} = 0;
-                next;
-            }
-
-            $info{$_, 'last'} = $quote->{'l'};
-            $quoter->store_date(\%info, $_, {isodate => $date});
-            $info{$_, 'time'} = $time;
-            if ($quote->{'ltt'})
-            {
-                # ltt is a timestamp of the form H:MMPP ZZ
-                ($info{$_, 'timezone'}) = ($quote->{'ltt'} =~ /^\d{1,2}:\d{2}[AP]M ([A-Z]+)$/);
-            }
-            $info{$_, 'currency'} = $currency;
-            $info{$_, 'symbol'} = $_;
-            $info{$_, 'exchange'} = $quote->{'e'};
-            $info{$_, 'method'} = 'Google';
-            $info{$_, 'source'} = 'Finance::Quote::Google';
-            $info{$_, 'success'} = 1;
         }
     }
     else
@@ -168,8 +170,6 @@ sub google
 
     return wantarray() ? %info : \%info;
 }
-
-1;
 
 __END__
 
