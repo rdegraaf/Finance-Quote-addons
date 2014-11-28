@@ -1,0 +1,33 @@
+Finance::Quote for Google and TDBank
+====================================
+
+This package contains add-ons to Finance::Quote to allow it to obtain quotes 
+from Google Finance and from TD Bank.  (The existing tdwaterhouse and tdefunds
+modules don't work.)  They are known to work with Finance::Quote 1.20.
+
+The current version of Finance::Quote can be obtained from 
+<https://github.com/finance-quote/finance-quote>.
+
+To install, first install Finance::Quote, then copy Google.pm and TDBank.pm to 
+Finance::Quote's install directory (likely something like 
+/usr/local/share/perl5/Finance/Quote/), then edit Quote.pm (likely 
+/usr/local/share/perl5/Finance/Quote.pm) to add "Google" and "TDBank" to 
+"@modules".
+
+
+Licence
+-------
+
+These modules are copyright (c) Rennie deGraaf, 2014.  They are distributed 
+under the terms of the GNU General Public License, either version 3 or (at your 
+option), any later version.  See LICENCE or <https://www.gnu.org/licenses/> for 
+details.
+
+These are the same licensing conditions as for Finance::Quote.
+
+
+Contact information
+-------------------
+
+Rennie deGraaf (rennie-dot-degraaf-at-gmail-dot-com)
+
